@@ -1,4 +1,4 @@
-name: Force-sync upstream every 30 min
+name: Force-sync upstream (main) every 30 min
 
 on:
   schedule:
@@ -11,34 +11,34 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 1. 拉取上游（放在 ./upstream）
-      - uses: actions/checkout@v4
-        with:
-          repository: Mursor/LIVE
-          ref: main
-          path: upstream
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      # 2. 拉取自己的仓库（当前目录）
+      # 1. 拉取自己仓库（当前目录）
       - uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. 备份 force-sync.yml → 清空仓库 → 复制上游 → 恢复 force-sync.yml
+      # 2. 用上游 main 分支直接覆盖
       - run: |
-          # 备份当前 force-sync.yml
+          # 备份自己的 force-sync.yml
           cp .github/workflows/force-sync.yml /tmp/force-sync.yml
           # 清空仓库（除 .git）
           find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          # 把上游所有文件复制进来
-          cp -a upstream/. .
+          # 获取上游 main 分支最新快照
+          git init tmp
+          cd tmp
+          git remote add up https://github.com/Mursor/LIVE.git
+          git fetch up main
+          git checkout up/main
+          # 复制文件到仓库根目录
+          cp -a . ../
+          cd ..
+          rm -rf tmp
           # 恢复 force-sync.yml
           mkdir -p .github/workflows
           mv /tmp/force-sync.yml .github/workflows/force-sync.yml
-          # 提交 & 强制推送
+          # 提交并强制推送
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add -A
-          git commit -m "force sync from Mursor/LIVE $(date -u)" || true
+          git commit -m "force sync from upstream main $(date -u)" || true
           git push --force "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" main
