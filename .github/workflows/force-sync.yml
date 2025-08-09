@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 1. 拉取上游最新代码
+      # 1. 拉取上游最新快照
       - name: Checkout upstream
         uses: actions/checkout@v4
         with:
@@ -20,20 +20,21 @@ jobs:
           path: upstream
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2. 拉取自己的仓库（用来备份 workflow）
+      # 2. 拉取自己的仓库
       - name: Checkout self
         uses: actions/checkout@v4
         with:
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
           path: self
           fetch-depth: 0
 
-      # 3. 备份并恢复 workflows
-      - name: Mirror & keep workflows
+      # 3. 强制覆盖并保留 workflows
+      - name: Mirror & push
         run: |
           # 备份 workflows
           cp -r self/.github/workflows /tmp/workflows
-          # 清空仓库（除 .git）
+          # 清空仓库（保留 .git）
           cd self
           find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
           # 复制上游所有文件
@@ -41,7 +42,7 @@ jobs:
           # 恢复 workflows
           rm -rf .github/workflows
           cp -r /tmp/workflows .github/
-          # 提交并强制推送到 **自己仓库**
+          # 提交并推送到 **自己仓库**
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add -A
