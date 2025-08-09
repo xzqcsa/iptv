@@ -11,40 +11,33 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 1. 拉取上游最新快照
-      - name: Checkout upstream
-        uses: actions/checkout@v4
+      # 1. 拉取上游
+      - uses: actions/checkout@v4
         with:
           repository: Mursor/LIVE
           ref: main
           path: upstream
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2. 拉取自己的仓库
-      - name: Checkout self
-        uses: actions/checkout@v4
+      # 2. 拉取自己仓库（用默认 origin）
+      - uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
-          path: self
-          fetch-depth: 0
 
-      # 3. 强制覆盖并保留 workflows
-      - name: Mirror & push
-        run: |
-          # 备份 workflows
-          cp -r self/.github/workflows /tmp/workflows
+      # 3. 覆盖并保留 workflows
+      - run: |
+          # 备份 workflow
+          cp -r .github/workflows /tmp/workflows
           # 清空仓库（保留 .git）
-          cd self
           find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          # 复制上游所有文件
-          cp -a ../upstream/. . || true
-          # 恢复 workflows
+          # 拷贝上游
+          cp -a upstream/. . || true
+          # 恢复 workflow
           rm -rf .github/workflows
           cp -r /tmp/workflows .github/
-          # 提交并推送到 **自己仓库**
+          # 提交并强制推到自己仓库
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add -A
           git commit -m "force sync from upstream $(date -u)" || true
-          git push --force origin main
+          git push --force "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" main
