@@ -1,0 +1,48 @@
+name: Force-sync with upstream every 30 min
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # 1. 拉取上游最新代码
+      - name: Checkout upstream
+        uses: actions/checkout@v4
+        with:
+          repository: Mursor/LIVE
+          ref: main
+          path: upstream
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. 拉取自己的仓库（用来备份 workflow）
+      - name: Checkout self
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: self
+
+      # 3. 备份并恢复 workflows
+      - name: Mirror & keep workflows
+        run: |
+          # 备份 workflows
+          cp -r self/.github/workflows /tmp/workflows
+          # 清空仓库（除 .git）
+          cd self
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          # 复制上游所有文件
+          cp -a ../upstream/. . || true
+          # 恢复 workflows
+          rm -rf .github/workflows
+          cp -r /tmp/workflows .github/
+          # 提交并强制推送
+          git config user.name  "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "force sync from upstream $(date -u)" || true
+          git push --force origin main
