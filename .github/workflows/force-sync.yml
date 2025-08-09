@@ -26,6 +26,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           path: self
+          fetch-depth: 0
 
       # 3. 备份并恢复 workflows
       - name: Mirror & keep workflows
@@ -40,7 +41,7 @@ jobs:
           # 恢复 workflows
           rm -rf .github/workflows
           cp -r /tmp/workflows .github/
-          # 提交并强制推送
+          # 提交并强制推送到 **自己仓库**
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add -A
