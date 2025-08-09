@@ -1,4 +1,4 @@
-name: Force-sync upstream (main) every 30 min
+name: Force-sync upstream every 30 min
 
 on:
   schedule:
@@ -11,32 +11,33 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 1. 拉取自己仓库（当前目录）
+      # 1. 拉取自己仓库（当前路径 ./）
       - uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2. 用上游 main 分支直接覆盖
+      # 2. 备份 force-sync.yml
+      - run: cp .github/workflows/force-sync.yml /tmp/force-sync.yml
+
+      # 3. 清空仓库（除 .git 与备份）
+      - run: find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+
+      # 4. 直接下载上游 main 分支的 zip 并解压到当前目录
       - run: |
-          # 备份自己的 force-sync.yml
-          cp .github/workflows/force-sync.yml /tmp/force-sync.yml
-          # 清空仓库（除 .git）
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          # 获取上游 main 分支最新快照
-          git init tmp
-          cd tmp
-          git remote add up https://github.com/Mursor/LIVE.git
-          git fetch up main
-          git checkout up/main
-          # 复制文件到仓库根目录
-          cp -a . ../
-          cd ..
-          rm -rf tmp
-          # 恢复 force-sync.yml
+          curl -L https://github.com/Mursor/LIVE/archive/refs/heads/main.zip -o main.zip
+          unzip -q main.zip
+          rm -rf main.zip
+          mv LIVE-main/* .
+          rmdir LIVE-main || true
+
+      # 5. 恢复 force-sync.yml
+      - run: |
           mkdir -p .github/workflows
           mv /tmp/force-sync.yml .github/workflows/force-sync.yml
-          # 提交并强制推送
+
+      # 6. 提交并强制推送到自己仓库
+      - run: |
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add -A
